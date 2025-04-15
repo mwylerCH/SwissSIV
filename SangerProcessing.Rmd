@@ -1,0 +1,975 @@
+---
+title: "Julia SIV"
+output: html_document
+date: "2024-07-23"
+---
+
+
+# VARIABLES
+
+```{sh}
+DATA=$HOME/DATA/SIV_Sanger_UZH
+TEMPDIR=$HOME/tempSIV
+mkdir -p $TEMPDIR
+
+export PATH="$PATH:$HOME/Software/seqtk"
+export PATH="$PATH:$HOME/miniconda3/bin/"
+
+```
+
+# References 
+
+Optional references contained in $DATA/HumanReferences.fa
+
+California: FJ969540.1 (HA) FJ984386.1 (NA)
+Michigan: MK622940.1 (HA) MK622934 (NA)
+Victoria: OQ718989.1 (HA) OQ718988.1 (NA)
+
+And from gisaid: $DATA/References_GISAID.fa
+EPI_ISL_85201 (2010)
+EPI_ISL_98715 (2011)
+EPI_ISL_19031578 (2011)
+EPI_ISL_242993        both seq to small to be seriously considered
+EPI_ISL_18713946      Covers 5' region of usual sequence (from start to 700bp)
+
+Some picks from Tree of manuscript ($DATA/CladesReferencesHA.fa)
+CY115943        Clade A.3.3.2 (pathogenic)
+KC222548        Clade A.3.3.2 (pathogenic)
+KC222540        Clade A.3.3.2 (pathogenic)
+KC222524        Clade A.3.3.2 (pathogenic)
+CY115943        Clade A.3.3.2 (pathogenic)
+CY116127        Clade A.3.3.2 (pathogenic)
+CY115983        Clade A.3.3.2 (pathogenic)
+AB531444        Clade A.3.3.2 (pathogenic)
+CY053619        Clade A.3.3.2 (pathogenic)
+AB628080        H1N2 lineage (root) human?
+JX138509        H1N2 lineage (root) human?
+KJ889364        Clade C.1
+KJ889356        Clade C.1
+KR700993        Clade C.2
+KR700509        Clade C.2
+KR066524        Clade C.2
+KR701017        Clade C.2
+KR066522        Clade C.2
+AM490219        Clade C.2.2
+AM490221        Clade C.2.2
+AM490220        Clade C.2.2
+AM490218        Clade C.2.2
+
+... and corresponding NA sequences ($DATA/CladesReferencesNA.fa)
+CY115945        Clade A.3.3.2 (pathogenic)
+KC222550        Clade A.3.3.2 (pathogenic)
+KC222542        Clade A.3.3.2 (pathogenic)
+KC222526        Clade A.3.3.2 (pathogenic)
+CY115945        Clade A.3.3.2 (pathogenic)
+CY116129        Clade A.3.3.2 (pathogenic)
+CY115985        Clade A.3.3.2 (pathogenic)
+AB531445        Clade A.3.3.2 (pathogenic)
+CY053621        Clade A.3.3.2 (pathogenic)
+AB628082        H1N2 lineage (root) human
+JX138511        H1N2 lineage (root) human
+KJ889366        Clade C.1
+KJ889358        Clade C.1
+KR700995        Clade C.2
+KR700511        Clade C.2
+KR700479        Clade C.2
+KR701019        Clade C.2
+KR700123        Clade C.2
+CY115837        Clade C.2.2
+CY115837        Clade C.2.2
+
+
+# Dependencies
+
+```{sh}
+# tracy
+conda create -n tracy
+conda install -n tracy bioconda::tracy
+conda install -n tracy bioconda::seqtk
+```
+
+
+# Assemble reads
+
+```{sh}
+source activate tracy
+
+mkdir -p $TEMPDIR/missingAssembly
+
+### HA --------
+# HA missing years 2013-2022
+
+# for 2022 HA
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2022/SIV 2.22 N1 fwd.fasta' $DATA/SIV_Sequenzen_2022/SIV_02_22_N1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2022/SIV 2.22 N1 rev.fasta' $DATA/SIV_Sequenzen_2022/SIV_02_22_N1_rev.ab1
+ls $DATA/SIV_Sequenzen_2022/SIV_*H1*.ab1 | sed 's/_rev\|_fwd//' | sed 's/.ab1//g' | sort | uniq | while read file; do
+  NAME=`basename $file`
+  tracy assemble -i -o $TEMPDIR/missingAssembly/$NAME $DATA/SIV_Sequenzen_2022/$NAME*.ab1
+done
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_18_22_H1.cons.fa $DATA/SIV_Sequenzen_2022/SIV_18_22_H1_fwd.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_17_22_H1.cons.fa $DATA/SIV_Sequenzen_2022/SIV_17_22_H1_fwd.ab1
+
+# for 2021 HA
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 1.21 N1 fwd.ab1' $DATA/SIV_Sequenzen_2021/SIV_01_21_N1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 1.21 N1 rev.ab1' $DATA/SIV_Sequenzen_2021/SIV_01_21_N1_rev.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 13.21 N1 fwd.ab1' $DATA/SIV_Sequenzen_2021/SIV_13_21_N1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 13.21 N1 rev.ab1' $DATA/SIV_Sequenzen_2021/SIV_13_21_N1_rev.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 15.21 N1 fwd.ab1' $DATA/SIV_Sequenzen_2021/SIV_15_21_N1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 15.21 N1 rev.ab1' $DATA/SIV_Sequenzen_2021/SIV_15_21_N1_rev.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 15.22 H1 fwd.ab1' $DATA/SIV_Sequenzen_2021/SIV_15_21_H1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 15.22 H1 rev.ab1' $DATA/SIV_Sequenzen_2021/SIV_15_21_H1_rev.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 16.21 H1 fwd.ab1' $DATA/SIV_Sequenzen_2021/SIV_16_21_H1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 16.21 H1 rev.ab1' $DATA/SIV_Sequenzen_2021/SIV_16_21_H1_rev.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 16.21 N1 fwd.ab1' $DATA/SIV_Sequenzen_2021/SIV_16_21_N1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 16.21 N1 rev.ab1' $DATA/SIV_Sequenzen_2021/SIV_16_21_N1_rev.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 17.21 N1 fwd.ab1' $DATA/SIV_Sequenzen_2021/SIV_17_21_N1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 17.21 N1 rev.ab1' $DATA/SIV_Sequenzen_2021/SIV_17_21_N1_rev.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 2.21 N1 fwd.ab1' $DATA/SIV_Sequenzen_2021/SIV_02_21_N1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 2.21 N1 rev.ab1' $DATA/SIV_Sequenzen_2021/SIV_02_21_N1_rev.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 21.21 N1 fwd.ab1' $DATA/SIV_Sequenzen_2021/SIV_21_21_N1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 21.21 N1 rev.ab1' $DATA/SIV_Sequenzen_2021/SIV_21_21_N1_rev.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 27.21 N1 fwd.ab1' $DATA/SIV_Sequenzen_2021/SIV_27_21_N1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 27.21 N1 rev.ab1' $DATA/SIV_Sequenzen_2021/SIV_27_21_N1_rev.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 30.21 N1 fwd.ab1' $DATA/SIV_Sequenzen_2021/SIV_30_21_N1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 30.21 N1 rev.ab1' $DATA/SIV_Sequenzen_2021/SIV_30_21_N1_rev.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 37.21 N1 fwd.ab1' $DATA/SIV_Sequenzen_2021/SIV_37_21_N1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 37.21 N1 rev.ab1' $DATA/SIV_Sequenzen_2021/SIV_37_21_N1_rev.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 4.21 N1 fwd.ab1' $DATA/SIV_Sequenzen_2021/SIV_04_21_N1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 4.21 N1 rev.ab1' $DATA/SIV_Sequenzen_2021/SIV_04_21_N1_rev.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 44.21 N1 fwd.ab1' $DATA/SIV_Sequenzen_2021/SIV_44_21_N1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 44.21 N1 rev.ab1' $DATA/SIV_Sequenzen_2021/SIV_44_21_N1_rev.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 45.21 N1 fwd.ab1' $DATA/SIV_Sequenzen_2021/SIV_45_21_N1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 45.21 N1 rev.ab1' $DATA/SIV_Sequenzen_2021/SIV_45_21_N1_rev.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 8.21 N1 fwd.ab1' $DATA/SIV_Sequenzen_2021/SIV_08_21_N1_fwd.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2021/SIV 8.21 N1 rev.ab1' $DATA/SIV_Sequenzen_2021/SIV_08_21_N1_rev.ab1
+
+ls $DATA/SIV_Sequenzen_2021/SIV_*.ab1 | sed 's/_WH//g' | sed 's/_rev\|_fwd//' | sed 's/.ab1//g' | sort | uniq | while read file; do
+  NAME=`basename $file`
+  tracy assemble -i -o $TEMPDIR/missingAssembly/$NAME $DATA/SIV_Sequenzen_2021/$NAME*.ab1
+done
+# manually correct few
+rm $TEMPDIR/missingAssembly/SIV_01_21_2.cons.fa # swine amplified
+rm $TEMPDIR/missingAssembly/SIV_40_21_*.cons.fa # merging
+tracy assemble -i -o $TEMPDIR/missingAssembly/SIV_40_21_H1 $DATA/SIV_Sequenzen_2021/*_40_*.ab1
+rm $TEMPDIR/missingAssembly/SIV_15_21_2.cons.fa $TEMPDIR/missingAssembly/SIV_15_21_H1.cons.fa # merging
+tracy assemble -i -o $TEMPDIR/missingAssembly/SIV_15_21_H1 $DATA/SIV_Sequenzen_2021/SIV_15_21_1_fwd_WH.ab1 $DATA/SIV_Sequenzen_2021/SIV_15_21_1_rev_WH.ab1 $DATA/SIV_Sequenzen_2021/SIV_15_21_2_fwd_WH.ab1 $DATA/SIV_Sequenzen_2021/SIV_15_21_2_rev_WH.ab1 $DATA/SIV_Sequenzen_2021/SIV_15_21_H1_fwd.ab1 $DATA/SIV_Sequenzen_2021/SIV_15_21_H1_fwd_WH.ab1 $DATA/SIV_Sequenzen_2021/SIV_15_21_H1_rev.ab1 $DATA/SIV_Sequenzen_2021/SIV_15_21_H1_rev_WH.ab1
+mv $TEMPDIR/missingAssembly/SIV_04_21_2.cons.fa $TEMPDIR/missingAssembly/SIV_04_21_H1.cons.fa
+mv $TEMPDIR/missingAssembly/SIV_16_21_1.cons.fa $TEMPDIR/missingAssembly/SIV_16_21_H1.cons.fa
+mv $TEMPDIR/missingAssembly/SIV_36_21_1.cons.fa $TEMPDIR/missingAssembly/SIV_36_21_H1.cons.fa
+
+
+
+#### 2011 HA
+# mv $DATA/SIV_Sequenzen_2011/1512346.ab1  $DATA/SIV_Sequenzen_2011/SIV_01_11_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2011/1512347.ab1 $DATA/SIV_Sequenzen_2011/SIV_01_11_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2011/1512348.ab1 $DATA/SIV_Sequenzen_2011/SIV_25_11_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2011/1512349.ab1 $DATA/SIV_Sequenzen_2011/SIV_25_11_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2011/1516402.ab1 $DATA/SIV_Sequenzen_2011/SIV_20_11_H1_rev.ab1
+# mv "$DATA/SIV_Sequenzen_2011/SIV 115.11_H1_H1_F.ab1" $DATA/SIV_Sequenzen_2011/SIV_115_11_H1_fwd.ab1
+# mv "$DATA/SIV_Sequenzen_2011/SIV 7.11_H1_H1_F.ab1" $DATA/SIV_Sequenzen_2011/SIV_07_11_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV113_H1_1597243.ab1 $DATA/SIV_Sequenzen_2011/SIV_113_11_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV125_H1f_1599323.ab1 $DATA/SIV_Sequenzen_2011/SIV_125_11_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV125_H1r_1599324.ab1 $DATA/SIV_Sequenzen_2011/SIV_125_11_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV178_H1f_1622888.ab1 $DATA/SIV_Sequenzen_2011/SIV_178_11_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV178_H1r_1622889.ab1 $DATA/SIV_Sequenzen_2011/SIV_178_11_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV181_H1f_1622890.ab1 $DATA/SIV_Sequenzen_2011/SIV_181_11_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV181_H1r_1622891.ab1 $DATA/SIV_Sequenzen_2011/SIV_181_11_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV191_H1r_1622893.ab1 $DATA/SIV_Sequenzen_2011/SIV_191_11_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV192_H1f_1628717.ab1 $DATA/SIV_Sequenzen_2011/SIV_192_11_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV192_H1r_1628718.ab1 $DATA/SIV_Sequenzen_2011/SIV_192_11_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV196_H1r_1628720.ab1 $DATA/SIV_Sequenzen_2011/SIV_198_11_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV198_N1r_1628726.ab1 $DATA/SIV_Sequenzen_2011/SIV_198_11_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV202_H1_2502714.ab1 $DATA/SIV_Sequenzen_2011/SIV_202_11_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV202_H1r_2502710.ab1 $DATA/SIV_Sequenzen_2011/SIV_202_11_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV204_H1_2502716.ab1 $DATA/SIV_Sequenzen_2011/SIV_204_11_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV204_H1r_2003161.ab1 $DATA/SIV_Sequenzen_2011/SIV_204_11_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV_31_11_HAf_1025635.ab1 $DATA/SIV_Sequenzen_2011/SIV_31_11_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2011/SIV_31_11_HAr_1025636.ab1 $DATA/SIV_Sequenzen_2011/SIV_31_11_H1_rev.ab1
+
+#ls $DATA/SIV_Sequenzen_2011/SIV_*_H1_*.ab1 | sed 's/_rev\|_fwd//' | sed 's/.ab1//g' | sort | uniq | while read file; do
+#  NAME=`basename $file`
+#  tracy assemble -i -o $TEMPDIR/missingAssembly/$NAME $DATA/SIV_Sequenzen_2011/$NAME*.ab1
+#done
+
+#### 2013 HA
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 111 H1_H1_R.ab1' $DATA/SIV_Sequenzen_2013/SIV_111_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 116 H1_H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_116_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 120 H1_H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_120_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 129.13_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_129_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 135.13_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_135_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 140 H1 _H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_140_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 142 H1_H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_142_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 151.13_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_151_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 153.13_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_153_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 154.13_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_154_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 157.13_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_157_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 158.13_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_158_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 159.13_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_159_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 175.13_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_175_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 183.13_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_183_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 75_H1_F_H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_75_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 76_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_76_13_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2013/SIV 85_13 H1_F_H1_F.ab1' $DATA/SIV_Sequenzen_2013/SIV_85_13_H1.ab1
+
+ls $DATA/SIV_Sequenzen_2013/SIV_*_13_H1.ab1 | while read file; do
+  NAME=`basename $file .ab1`
+  tracy basecall -f fasta -o $TEMPDIR/missingAssembly/${NAME}.cons.fa $file
+done
+
+
+#### 2014 HA
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2014/SIV 100_14_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2014/SIV_100_14_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2014/SIV 120_14_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2014/SIV_120_14_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2014/SIV 127_14_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2014/SIV_127_14_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2014/SIV 130_14_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2014/SIV_130_14_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2014/SIV 139_14_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2014/SIV_139_14_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2014/SIV 144_14_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2014/SIV_144_14_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2014/SIV 148_14_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2014/SIV_148_14_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2014/SIV 24_14_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2014/SIV_24_14_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2014/SIV 5_14_H1 _H1_F.ab1' $DATA/SIV_Sequenzen_2014/SIV_05_14_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2014/SIV 63_14_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2014/SIV_63_14_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2014/SIV 66_14_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2014/SIV_66_14_H1.ab1
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2014/SIV 7_14_H1_H1_F.ab1' $DATA/SIV_Sequenzen_2014/SIV_07_14_H1.ab1
+ls $DATA/SIV_Sequenzen_2014/SIV_*_14_H1.ab1 | while read file; do
+  NAME=`basename $file .ab1`
+  tracy basecall -f fasta -o $TEMPDIR/missingAssembly/$NAME.cons.fa $file
+done
+
+
+#### 2015 HA
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2015/SIV 39.15 H1 f_H1 fwd-7.scf' $DATA/SIV_Sequenzen_2015/SIV_39_15_H1.ab1
+ls $DATA/SIV_Sequenzen_2015/*H1*ab1 | sed 's/.ab1//g' | sed 's/_H1fwd_//'| sed 's/_H1rev_//'| sed 's/_H1__1//'| sed 's/_H1_//' | sed 's/fwd_//' | sed 's/H1_F//' | sed 's/_H1fwd1//' | sed 's/rev_//' | sed 's/fwd1//' | sed 's/15r_/15/' | sed 's/H1fwd//' | sed 's/H1_//' | sed 's/_H11//' | sed 's/_H1//' | while read file; do
+  NAME=`basename $file .ab1`
+  tracy assemble -i -o $TEMPDIR/missingAssembly/${NAME}_H1 $file*.ab1
+done
+mv $TEMPDIR/missingAssembly/SIV_2_H1.cons.fa $TEMPDIR/missingAssembly/SIV_2_15_H1.cons.fa
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_11_15_H1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_11_15*H1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_14_15_H1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_14_15*H1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_3_15_H1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_3_15*H1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_57_15_H1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_57_15*H1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_5_15_H1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_5_15*H1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_60_15_H1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_60_15*H1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_64_15_H1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_64_15*H1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_65_15_H1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_65_15*H1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_6_15_H1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_6_15*H1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_79_15_H1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_79_15*H1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_89_15_H1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_89_15*H1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_91_15_H1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_91_15*H1*.ab1
+
+
+#### 2016 HA
+ls $DATA/SIV_Sequenzen_2016/*H1*ab1 | sed 's/_H1.*//' | sed 's/_F//' | sort | uniq -c | while read line; do
+  CONTA=`echo $line | awk '{print $1}'`
+  FILE=`echo $line | awk '{print $2}'`
+  NAME=`basename $FILE`
+  if [[ $CONTA -eq 1 ]]
+  then
+    tracy basecall -f fasta -o $TEMPDIR/missingAssembly/${NAME}_H1.cons.fa $FILE*H1*.ab1
+  else
+    tracy assemble -i -o $TEMPDIR/missingAssembly/$NAME $FILE*H1*.ab1
+  fi
+done
+
+
+#### 2017 HA
+mv '/home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2017/SIV 145_H1_F.ab1' /home/mwyler/DATA/SIV_Sanger_UZH/SIV_Sequenzen_2017/SIV_145_17_H1_F.ab1
+ls $DATA/SIV_Sequenzen_2017/*H1*ab1 | sed 's/_H1_F.ab1//' | while read line; do
+  NAME=`basename $line`
+  tracy basecall -f fasta -o $TEMPDIR/missingAssembly/${NAME}_H1.cons.fa $line*H1*.ab1
+done
+
+
+#### 2018 HA
+mv $DATA/SIV_Sequenzen_2018/SIV_09_18_H1_fwd_rep1.ab1 $DATA/SIV_Sequenzen_2018/SIV_09_18_H1_fwd.ab1
+ls $DATA/SIV_Sequenzen_2018/*H1*ab1 | sed 's/_H1_fwd.ab1//' | while read line; do
+  NAME=`basename $line`
+  tracy basecall -f fasta -o $TEMPDIR/missingAssembly/${NAME}_H1.cons.fa $line*H1*.ab1
+done
+
+
+
+#### 2019 HA
+mv $DATA/SIV_Sequenzen_2019/SIV_55_19_H1_fwd_rep1.ab1 $DATA/SIV_Sequenzen_2019/SIV_55_19_H1_fwd.ab1
+ls $DATA/SIV_Sequenzen_2019/*H1*ab1 | sed 's/_H1.*//' | while read line; do
+  NAME=`basename $line`
+  tracy basecall -f fasta -o $TEMPDIR/missingAssembly/${NAME}_H1.cons.fa $line*H1*.ab1
+done
+
+
+
+
+#### 2020 HA
+ls $DATA/SIV_Sequenzen_2020/*H1*ab1 | sed 's/_H1.*//' | while read line; do
+  NAME=`basename $line`
+  tracy basecall -f fasta -o $TEMPDIR/missingAssembly/${NAME}_H1.cons.fa $line*H1*.ab1
+done
+
+
+#### 2021 HA
+ls $DATA/SIV_Sequenzen_2021/*H1*ab1 | sed 's/_H1.*//' | while read line; do
+  NAME=`basename $line`
+  tracy assemble -i -o $TEMPDIR/missingAssembly/$NAME $line*H1*.ab1
+done
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_40_21_H1.cons.fa $DATA/SIV_Sequenzen_2021/SIV_40_21_H1_rev_WH.ab1
+
+
+
+#### 2022 HA
+ls $DATA/SIV_Sequenzen_2022/*H1*ab1 | sed 's/_H1.*/_H1/' | while read line; do
+  NAME=`basename $line`
+  tracy assemble -i -o $TEMPDIR/missingAssembly/$NAME $line*.ab1
+done
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_17_22_H1.cons.fa $DATA/SIV_Sequenzen_2022/SIV_17_22_H1_fwd.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_37_22_H1.cons.fa $DATA/SIV_Sequenzen_2022/SIV_37_22_H1_fwd.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_17_22_H1.cons.fa $DATA/SIV_Sequenzen_2022/SIV_17_22_H1_rev.ab1
+
+
+
+# 2010
+# mv $DATA/SIV_Sequenzen_2010/0031164.ab1 $DATA/SIV_Sequenzen_2010/SIV_45_10_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2010/0031165.ab1 $DATA/SIV_Sequenzen_2010/SIV_45_10_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2010/0031156.ab1 $DATA/SIV_Sequenzen_2010/SIV_01_38_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2010/0031157.ab1 $DATA/SIV_Sequenzen_2010/SIV_38_10_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2010/0031160.ab1 $DATA/SIV_Sequenzen_2010/SIV_41_10_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2010/0031161.ab1 $DATA/SIV_Sequenzen_2010/SIV_41_10_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2010/541810.ab1 $DATA/SIV_Sequenzen_2010/SIV_73_10_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2010/541811.ab1 $DATA/SIV_Sequenzen_2010/SIV_73_10_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2010/541815.ab1 $DATA/SIV_Sequenzen_2010/SIV_77_10_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2010/0050577.ab1 $DATA/SIV_Sequenzen_2010/SIV_48_10_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2010/0050578.ab1 $DATA/SIV_Sequenzen_2010/SIV_48_10_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2010/0050579.ab1 $DATA/SIV_Sequenzen_2010/SIV_74_10_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2010/0050580.ab1 $DATA/SIV_Sequenzen_2010/SIV_74_10_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2010/514637.ab1 $DATA/SIV_Sequenzen_2010/SIV_123_10_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2010/514638.ab1 $DATA/SIV_Sequenzen_2010/SIV_123_10_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2010/514628.ab1 $DATA/SIV_Sequenzen_2010/SIV_05_10_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2010/514629.ab1 $DATA/SIV_Sequenzen_2010/SIV_05_10_H1_ref.ab1
+# mv $DATA/SIV_Sequenzen_2010/514630.ab1 $DATA/SIV_Sequenzen_2010/SIV_11_10_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2010/514631.ab1 $DATA/SIV_Sequenzen_2010/SIV_18_10_H1_rev.ab1
+# mv $DATA/SIV_Sequenzen_2010/0070348.ab1 $DATA/SIV_Sequenzen_2010/SIV_113_10_H1_fwd.ab1
+# mv $DATA/SIV_Sequenzen_2010/0070349.ab1 $DATA/SIV_Sequenzen_2010/SIV_113_10_H1_rev.ab1
+
+# ls $DATA/SIV_Sequenzen_2020/SIV_*_H1_*.ab1 | sed 's/_rev\|_fwd//' | sed 's/.ab1//g' | sort | uniq | while read file; do
+#   NAME=`basename $file`
+#   #tracy assemble -i -o $TEMPDIR/missingAssembly/$NAME $DATA/SIV_Sequenzen_2020/$NAME*.ab1
+#   tracy basecall -f fasta -o $TEMPDIR/missingAssembly/$NAME.cons.fa ${file}*.ab1
+# done
+
+### NA --------
+# NA missing years 2015-2020 (2021+2022 done with HA)
+
+# for 2020
+ls $DATA/SIV_Sequenzen_2020/SIV_*_N1_*.ab1 | sed 's/_rev\|_fwd//' | sed 's/.ab1//g' | sort | uniq | while read file; do
+  NAME=`basename $file`
+  #tracy assemble -i -o $TEMPDIR/missingAssembly/$NAME $DATA/SIV_Sequenzen_2020/$NAME*.ab1
+  tracy basecall -f fasta -o $TEMPDIR/missingAssembly/$NAME.cons.fa ${file}*.ab1
+done
+
+# for 2019
+ls $DATA/SIV_Sequenzen_2019/SIV_*N*.ab1 | sed 's/_rev\|_fwd//' | sed 's/f././' | sed 's/.ab1//g' | sort | uniq | while read file; do
+  NAME=`basename $file`
+  #tracy assemble -i -o $TEMPDIR/missingAssembly/$NAME $DATA/SIV_Sequenzen_2019/$NAME*.ab1
+  tracy basecall -f fasta -o $TEMPDIR/missingAssembly/$NAME.cons.fa ${file}*.ab1
+done
+
+
+# for 2018
+ls $DATA/SIV_Sequenzen_2018/SIV_*N*.ab1 | fgrep 89| sed 's/_rev\|_fwd//' | sed 's/-1//' | sed 's/.ab1//g' | sort | uniq | while read file; do
+  NAME=`basename $file`
+  tracy assemble -i -o $TEMPDIR/missingAssembly/$NAME $DATA/SIV_Sequenzen_2018/$NAME*.ab1
+done
+
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_01_18_N1.cons.fa $DATA/SIV_Sequenzen_2018/SIV_01_18_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_02_18_N1.cons.fa $DATA/SIV_Sequenzen_2018/SIV_02_18_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_04_18_N1.cons.fa $DATA/SIV_Sequenzen_2018/SIV_04_18_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_09_18_N1.cons.fa $DATA/SIV_Sequenzen_2018/SIV_09_18_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_11_18_N1.cons.fa $DATA/SIV_Sequenzen_2018/SIV_11_18_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_12_18_N1.cons.fa $DATA/SIV_Sequenzen_2018/SIV_12_18_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_25_18_N1.cons.fa $DATA/SIV_Sequenzen_2018/SIV_25_18_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_26_18_N1.cons.fa $DATA/SIV_Sequenzen_2018/SIV_26_18_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_73_18_N1.cons.fa $DATA/SIV_Sequenzen_2018/SIV_73_18_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_75_18_N1.cons.fa $DATA/SIV_Sequenzen_2018/SIV_75_18_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_81_18_N1.cons.fa $DATA/SIV_Sequenzen_2018/SIV_81_18_N1*.ab1
+# tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_89_18_N1.cons.fa $DATA/SIV_Sequenzen_2018/SIV_89_18_N2*.ab1    # TOTALLY USELESS
+
+# for 2017
+ls $DATA/SIV_Sequenzen_2017/SIV_*N*.ab1| sed 's/_F//' | sed 's/.ab1//g' | sed 's/-1//g' | sort | uniq | while read file; do
+  NAME=`basename $file`
+  tracy assemble -i -o $TEMPDIR/missingAssembly/$NAME $DATA/SIV_Sequenzen_2017/$NAME*.ab1
+done
+
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_101_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_101_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_102_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_102_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_105_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_105_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_106_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_106_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_109_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_109_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_10_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_10_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_111_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_111_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_11_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_11_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_134_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_134_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_142_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_142_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_146_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_146_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_147_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_147_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_149_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_149_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_150_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_150_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_151_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_151_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_156_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_156_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_157_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_157_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_162_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_162_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_163_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_163_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_169_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_169_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_16_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_16_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_170_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_170_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_172_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_172_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_173_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_173_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_174_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_174_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_17_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_17_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_18_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_18_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_1_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_1_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_21_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_21_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_29_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_29_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_2_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_2_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_31_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_31_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_32_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_32_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_36_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_36_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_4_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_4_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_52_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_52_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_53_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_53_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_57_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_57_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_5_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_5_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_61_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_61_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_62_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_62_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_66_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_66_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_67_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_67_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_68_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_68_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_69_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_69_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_6_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_6_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_70_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_70_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_71_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_71_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_72_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_72_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_7_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_7_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_88_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_88_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_89_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_89_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_8_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_8_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_90_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_90_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_91_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_91_17_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_9_17_N1.cons.fa $DATA//SIV_Sequenzen_2017/SIV_9_17_N1*.ab1
+
+# for 2016
+ls $DATA/SIV_Sequenzen_2016/SIV_*N*.ab1| sed 's/_F//' | sed 's/_rev\|_fwd//' | sed 's/N1f.\|N1r./N1./' | sed 's/.ab1//g' | sed 's/_N2_1/_N1/' | sort | uniq | while read file; do
+  NAME=`basename $file`
+  tracy assemble -i -o $TEMPDIR/missingAssembly/$NAME $DATA/SIV_Sequenzen_2016/$NAME*.ab1
+done
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_101_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_101_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_108_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_108_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_109_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_109_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_118_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_118_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_119_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_119_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_128_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_128_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_133_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_133_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_134_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_134_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_13_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_13_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_141_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_141_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_142_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_142_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_143_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_143_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_22_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_22_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_30_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_30_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_32_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_32_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_47_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_47_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_48_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_48_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_50_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_50_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_52_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_52_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_53_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_53_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_65_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_65_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_71_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_71_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_72_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_72_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_84_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_84_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_85_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_85_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_87_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_87_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_88_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_88_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_90_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_90_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_91_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_91_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_94_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_94_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_95_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_95_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_96_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_96_16_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_98_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_98_16_N1*.ab1
+# tracy assemble -i -o $TEMPDIR/missingAssembly/SIV_134_16_N1.cons.fa $DATA/SIV_Sequenzen_2016/SIV_134*.ab1         # TOTALLY USELESS
+
+# for 2015
+ls $DATA/SIV_Sequenzen_2015/SIV_*N*.ab1 | sed 's/_rev_\|_fwd_//' | sed 's/.ab1//g' | sed 's/_N1_F//g' | sed 's/N1_/N1/g' | sed 's/N1r1/N1/g' | sed 's/fwd_1//g' | sed 's/fwd//g' | sed 's/N1r_/N1/g' | sed 's/N11/N1/g' | sed 's/N1N1/N1/g' | sed 's/rev1//g' | sed 's/rev__1//g' | sort | uniq | while read file; do
+  NAME=`basename $file`
+  tracy assemble -i -o $TEMPDIR/missingAssembly/$NAME $DATA/SIV_Sequenzen_2015/$NAME*.ab1
+done
+mv $TEMPDIR/missingAssembly/SIV_2_N1.cons.fa $TEMPDIR/missingAssembly/SIV_2_15_N1.cons.fa
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_11_15_N1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_11_15_N1*.ab1
+# tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_12_15_N1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_12_15_N1*.ab1 two files but not matching
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_13_15_N1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_13_15_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_14_15_N1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_14_15_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_39_15_H1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_39_15_N1*.ab1 # is H instead of N
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_3_15_N1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_3_15_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_43_15_N1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_43_15_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_57_15_N1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_57_15_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_58_15_N1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_58_15_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_60_15_N1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_60_15_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_64_15_N1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_64_15_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_65_15_N1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_65_15_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_6_15_N1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_6_15_N1*.ab1
+tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_88_15_N1.cons.fa $DATA/SIV_Sequenzen_2015/SIV_88_15_N1*.ab1
+
+# for 2022
+ls $DATA/SIV_Sequenzen_2022/SIV_*N*.ab1 | sed 's/_rev\|_fwd//' | sed 's/.ab1//g' | sort | uniq | while read file; do
+  NAME=`basename $file`
+  tracy assemble -i -o $TEMPDIR/missingAssembly/$NAME $DATA/SIV_Sequenzen_2022/$NAME*.ab1
+done
+#tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_02_22_N1.cons.fa $DATA/SIV_Sequenzen_2022/SIV_02_22_N1*.ab1 ##bad run for both
+# tracy basecall -f fasta -o $TEMPDIR/missingAssembly/SIV_34_22_N1.cons.fa $DATA/SIV_Sequenzen_2022/SIV_34_22_N1_rev.ab1 ##bad run for both
+
+# change few names
+mv $TEMPDIR/missingAssembly/SIV_15_21.cons.fa $TEMPDIR/missingAssembly/SIV_15_21_H1.cons.fa
+
+
+
+# remove rubbish
+rm $TEMPDIR/missingAssembly/*json
+rm $TEMPDIR/missingAssembly/*vertical
+rm $TEMPDIR/missingAssembly/*align.fa
+
+
+
+
+```
+
+# Claudia Seqs
+
+```{sh}
+# all headers in the format: SIV_6_15_N1
+# not consider SIV_154_11_N1 and SIV_88_12_H1: wrong amplification 
+sed -i 's/>.*$/>SIV_123_10_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2010_123.fasta
+sed -i 's/>.*$/>SIV_127_10_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2010_127.fasta
+sed -i 's/>.*$/>SIV_18_10_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2010_18r.fasta
+sed -i 's/>.*$/>SIV_02_10_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2010_2.fasta
+sed -i 's/>.*$/>SIV_38_10_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2010_38.fasta
+sed -i 's/>.*$/>SIV_41_10_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2010_41.fasta
+sed -i 's/>.*$/>SIV_73_10_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2010_73.fasta
+sed -i 's/>.*$/>SIV_104_11_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2011_104.fasta
+sed -i 's/>.*$/>SIV_125_11_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2011_125.fasta
+sed -i 's/>.*$/>SIV_141_11_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2011_141.fasta
+#sed -i 's/>.*$/>SIV_154_11_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2011_154.fasta
+sed -i 's/>.*$/>SIV_167_11_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2011_167.fasta
+sed -i 's/>.*$/>SIV_178_11_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2011_178.fasta
+sed -i 's/>.*$/>SIV_181_11_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2011_181.fasta
+sed -i 's/>.*$/>SIV_191_11_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2011_191.fasta
+sed -i 's/>.*$/>SIV_193_11_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2011_193.fasta
+sed -i 's/>.*$/>SIV_196_11_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2011_196.fasta
+sed -i 's/>.*$/>SIV_198_11_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2011_198.fasta
+sed -i 's/>.*$/>SIV_31_12_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2012_31.fasta
+sed -i 's/>.*$/>SIV_40_12_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2012_40.fasta
+sed -i 's/>.*$/>SIV_43_12_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2012_43.fasta
+sed -i 's/>.*$/>SIV_74_12_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2012_74.fasta
+sed -i 's/>.*$/>SIV_97_12_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2012_97.fasta
+sed -i 's/>.*$/>SIV_62_13_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2013_62F.fasta
+sed -i 's/>.*$/>SIV_14_14_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2014_14F.fasta
+sed -i 's/>.*$/>SIV_24_14_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2014_24F.fasta
+sed -i 's/>.*$/>SIV_05_14_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2014_5F.fasta
+sed -i 's/>.*$/>SIV_63_14_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2014_63F.fasta
+sed -i 's/>.*$/\n>SIV_66_14_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2014_66F.fasta
+sed -i 's/>.*$/\n>SIV_07_14_N1/' $HOME/DATA/SIV_Projekt_Claudia/merged_NA_2010_2014/N1_2014_7F.fasta
+
+sed -i 's/>.*$/>SIV_11_10_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2010_11.fas
+sed -i 's/>.*$/>SIV_123_10_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2010_123.fas
+sed -i 's/>.*$/>SIV_18_10_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2010_18.fas
+sed -i 's/>.*$/>SIV_38_10_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2010_38.fas
+sed -i 's/>.*$/>SIV_41_10_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2010_41.fas
+sed -i 's/>.*$/>SIV_45_10_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2010_45.fas
+sed -i 's/>.*$/>SIV_48_10_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2010_48.fas
+sed -i 's/>.*$/>SIV_05_10_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2010_5.fas
+sed -i 's/>.*$/>SIV_74_10_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2010_74.fas
+sed -i 's/>.*$/>SIV_125_11_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2011_125.fas
+sed -i 's/>.*$/>SIV_178_11_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2011_178.fas
+sed -i 's/>.*$/>SIV_181_11_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2011_181.fas
+sed -i 's/>.*$/>SIV_192_11_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2011_192.fas
+sed -i 's/>.*$/>SIV_202_11_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2011_202.fas
+sed -i 's/>.*$/>SIV_31_12_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2012_31.fas
+sed -i 's/>.*$/>SIV_74_12_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2012_74.fas
+#sed -i 's/>.*$/>SIV_88_12_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2012_88.fas
+sed -i 's/>.*$/>SIV_96_12_H1/' $HOME/DATA/SIV_Projekt_Claudia/merged_HA_2020_2012/H1_2012_9697.fas
+
+```
+
+
+# Basic Analysis
+
+Clade classification performed with https://www.bv-brc.org/app/SubspeciesClassification
+the 4.9.24
+
+```{sh}
+source activate Mapping
+
+# convert names
+for file in $TEMPDIR/missingAssembly/*fa; do
+  NAME=`basename $file .cons.fa`
+  sed -i "s/>.*/>$NAME/" $file
+done
+
+
+## merge all files
+cat $TEMPDIR/missingAssembly/*fa $DATA/References_GISAID.fa > $TEMPDIR/bigCollection.fa
+# add claudia
+cat $HOME/DATA/SIV_Projekt_Claudia/*/*.fas* >> $TEMPDIR/bigCollection.fa
+
+
+## NA ------------------------------
+
+# get only NA (and remove other amplifications)
+fgrep '>' $TEMPDIR/bigCollection.fa | grep -P 'NA|N1' | fgrep -v HA | sed 's/>//g' | awk '{print $1}' | fgrep -v SIV_154_11_N1 | fgrep -v SIV_43_12_N1 | fgrep -v SIV_13_15_N1 | fgrep -v SIV_89_17_N1 | fgrep -v SIV_81_18_N1 > $TEMPDIR/namesNA.txt
+seqtk subseq $TEMPDIR/bigCollection.fa $TEMPDIR/namesNA.txt > $TEMPDIR/allNA.fa
+cat $DATA/CladesReferencesNA.fa >> $TEMPDIR/allNA.fa
+
+
+# align
+mafft --thread 17 --reorder --adjustdirectionaccurately --op 5 $TEMPDIR/allNA.fa > $TEMPDIR/allNA.aln
+#trimal -simthreshold 0.8 -in $TEMPDIR/allNA.aln -out $TEMPDIR/allNA_trimAl.aln -cons 60 -gt 0.9
+# manually inspect and trimm: $TEMPDIR/trimmed_NA.aln
+# without references: $TEMPDIR/trimmed_NOref_NA.aln
+sed -i 's/_R_//g' $TEMPDIR/trimmed_NA.aln
+sed -i 's/_R_//g' $TEMPDIR/trimmed_NOref_NA.aln
+
+# classic tree (with references)
+fasttree -nt $TEMPDIR/trimmed_NA.aln > $TEMPDIR/trimmed_NA.tree
+
+# distance matrix (no references)
+source activate famsa
+famsa -square_matrix -dist_export $TEMPDIR/trimmed_NOref_NA.aln $TEMPDIR/trimmed_NOref_NA.DistMatrix
+conda deactivate
+
+
+## HA ------------------------------
+
+# get only NA (and remove other amplifications)
+fgrep '>' $TEMPDIR/bigCollection.fa | grep -P 'HA|H1' | fgrep -v NA | sed 's/>//g' | awk '{print $1}' | fgrep -v SIV_88_12_H1 | fgrep -v SIV_60_20_H1 | fgrep -v SIV_17_18_H1 | fgrep -v SIV_133_16_H1 | fgrep -v EPI_ISL_242993_HA > $TEMPDIR/namesHA.txt
+seqtk subseq $TEMPDIR/bigCollection.fa $TEMPDIR/namesHA.txt > $TEMPDIR/allHA.fa
+cat $DATA/CladesReferencesHA.fa >> $TEMPDIR/allHA.fa
+
+
+# align
+mafft --thread 17 --reorder --adjustdirectionaccurately --op 5 $TEMPDIR/allHA.fa > $TEMPDIR/allHA.aln
+#trimal -simthreshold 0.8 -in $TEMPDIR/allNA.aln -out $TEMPDIR/allNA_trimAl.aln -cons 60 -gt 0.9
+# manually inspect and trimm: $TEMPDIR/trimmed_HA.aln
+# without references: $TEMPDIR/trimmed_NOref_HA.aln
+sed -i 's/_R_//g' $TEMPDIR/trimmed_HA.aln
+sed -i 's/_R_//g' $TEMPDIR/trimmed_NOref_HA.aln
+
+# classic tree (with references)
+fasttree -nt $TEMPDIR/trimmed_HA.aln > $TEMPDIR/trimmed_HA.tree
+
+# distance matrix (no references)
+source activate famsa
+famsa -square_matrix -dist_export $TEMPDIR/trimmed_NOref_HA.aln $TEMPDIR/trimmed_NOref_HA.DistMatrix
+conda deactivate
+
+```
+
+# Master Table
+
+```{sh}
+# which seq NA are usefull?
+fgrep '>' $TEMPDIR/trimmed_NOref_NA.aln | sed 's/>//' > $TEMPDIR/Overview_NA_Seq.txt
+
+# which seq HA are usefull?
+fgrep '>' $TEMPDIR/trimmed_NOref_HA.aln | sed 's/>//' > $TEMPDIR/Overview_HA_Seq.txt
+
+# which files ab1 are around?
+find $HOME/DATA/SIV_Sanger_UZH -name "*ab1" | awk -F"/" '{print $7}' > $TEMPDIR/Overview_sanger_File.txt
+
+# what comes from claudia?
+ls $HOME/DATA/SIV_Projekt_Claudia/merged* | fgrep fa > $TEMPDIR/Overview_Claudia_File.txt
+
+# which NGS do we have?
+#ls $HOME/DATA/SIV_NGS/* | fgrep -v x | grep -P "SIV|siv" | fgrep -v home | awk '{print $1}' > $TEMPDIR/Overview_ngs_NGS.txt
+
+# which NGS from claudia
+ls $HOME/DATA/SIV_Projekt_Claudia/NGS_based_sequences_2015_2021/All_seg4 | fgrep fa | fgrep -v segment  > $TEMPDIR/Overview_claudia_NGS.txt
+ls $HOME/DATA/SIV_Projekt_Claudia/NGS_based_sequences_2015_2021/All_seg6 | fgrep fa | fgrep -v segment  >> $TEMPDIR/Overview_claudia_NGS.txt
+
+```
+
+
+```{r}
+library(data.table)
+library(tidyverse)
+
+
+# get all ab1 files ---------------------------------
+ab1 <- fread('//wsl.localhost/Ubuntu-22.04/home/mwyler/tempSIV/Overview_sanger_File.txt',
+             data.table = F, header = F)
+colnames(ab1) <- 'ID'
+
+# Check segments
+ab1$sanger_HA <- ifelse(grepl('H1|H3|h1', ab1$ID), 'yes', NA)
+ab1$sanger_NA <- ifelse(grepl('N1|NA|N2', ab1$ID), 'yes', NA)
+ab1$sanger_NoInfo <- ifelse(is.na(ab1$sanger_HA) & is.na(ab1$sanger_NA), 'yes', NA)
+
+# clean name
+ab1$ID <- gsub('.ab1', '', ab1$ID)
+ab1$ID <- gsub('_H1_fwd', '', ab1$ID)
+ab1$ID <- gsub('_H1_rev', '', ab1$ID)
+ab1$ID <- gsub('_WH', '', ab1$ID)
+ab1$ID <- gsub('_N1_fwd', '', ab1$ID)
+ab1$ID <- gsub('_[12]_rev', '', ab1$ID)
+ab1$ID <- gsub('_[12]_fwd', '', ab1$ID)
+ab1$ID <- gsub('_N1_rev', '', ab1$ID)
+ab1$ID <- gsub('_N1_fwd', '', ab1$ID)
+ab1$ID <- gsub('_H1_ref', '', ab1$ID)
+
+
+ab1$ID <- gsub('_H1fwd_', '', ab1$ID)
+ab1$ID <- gsub('_H1rev_', '', ab1$ID)
+ab1$ID <- gsub('_H1_F', '', ab1$ID)
+ab1$ID <- gsub('_H1rev_', '', ab1$ID)
+ab1$ID <- gsub('_H1_', '', ab1$ID)
+ab1$ID <- gsub('_H1', '', ab1$ID)
+ab1$ID <- gsub('_H3_[[:alpha:]]{3}', '', ab1$ID)
+ab1$ID <- gsub('_N2_[[:alpha:]]{3}', '', ab1$ID)
+ab1$ID <- gsub('_[[:alpha:]]{3}_', '', ab1$ID)
+ab1$ID <- gsub('_N1.*', '', ab1$ID)
+ab1$ID <- gsub('f', '', ab1$ID)
+
+# collapse rows
+ab1 <- ab1 %>% 
+  gather(key = 'cosa', value = 'si', -ID) %>% 
+  na.omit() %>% distinct() %>% 
+  spread(key = cosa, value = si)
+
+
+# get all sequence cleaned by claudia ---------------------------------
+claudiaClean <- fread('//wsl.localhost/Ubuntu-22.04/home/mwyler/tempSIV/Overview_Claudia_File.txt',
+             data.table = F, header = F)
+colnames(claudiaClean) <- 'ID'
+claudiaClean$Claudia_HA <- ifelse(grepl('H1', claudiaClean$ID), 'yes', NA)
+claudiaClean$Claudia_NA <- ifelse(grepl('N1', claudiaClean$ID), 'yes', NA)
+
+# clean names
+claudiaClean$ID <- gsub('.fasta', '', claudiaClean$ID)
+claudiaClean$ID <- gsub('.fas', '', claudiaClean$ID)
+claudiaClean$ID <- gsub('H1_2012_9697', 'SIV_96_12', claudiaClean$ID)
+claudiaClean$ID <- gsub('(.+)_([[:digit:]]{4})_(.+)', '\\1_\\3_\\2', claudiaClean$ID)
+claudiaClean$ID <- gsub('H1_', 'SIV_', claudiaClean$ID)
+claudiaClean$ID <- gsub('N1_', 'SIV_', claudiaClean$ID)
+claudiaClean$ID <- gsub('F', '', claudiaClean$ID)
+claudiaClean$ID <- gsub('r', '', claudiaClean$ID)
+claudiaClean$ID <- gsub('SIV_12_9697', 'SIV_96_12', claudiaClean$ID)
+claudiaClean$ID <- gsub('_20([[:digit:]])', '_\\1', claudiaClean$ID)
+claudiaClean$ID
+
+# collapse rows
+claudiaClean <- claudiaClean %>% 
+  gather(key = 'cosa', value = 'si', -ID) %>% 
+  na.omit() %>% distinct() %>% 
+  spread(key = cosa, value = si)
+
+
+# get all NGS claudia ---------------------------------
+claudiaNGS <- fread('//wsl.localhost/Ubuntu-22.04/home/mwyler/tempSIV/Overview_claudia_NGS.txt',
+                      data.table = F, header = F)
+colnames(claudiaNGS) <- 'ID'
+claudiaNGS$Claudia_NGS_HA <- ifelse(grepl('seg4', claudiaNGS$ID), 'yes', NA)
+claudiaNGS$Claudia_NGS_NA <- ifelse(grepl('seg6', claudiaNGS$ID), 'yes', NA)
+
+# clean names
+claudiaNGS$ID <- gsub('.fasta', '', claudiaNGS$ID)
+claudiaNGS$ID <- gsub('.fas', '', claudiaNGS$ID)
+claudiaNGS$ID <- gsub('_seg[46]', '', claudiaNGS$ID)
+claudiaNGS$ID <- gsub('(.+)-(.+)', '\\2_\\1', claudiaNGS$ID)
+claudiaNGS$ID <- gsub('siv', 'SIV_', claudiaNGS$ID)
+claudiaNGS$ID <- gsub('^', 'SIV_', claudiaNGS$ID)
+claudiaNGS$ID <- gsub('SIV_SIV', 'SIV_', claudiaNGS$ID)
+claudiaNGS$ID <- gsub('__', '_', claudiaNGS$ID)
+claudiaNGS$ID <- gsub('denovo', '', claudiaNGS$ID)
+claudiaNGS$ID <- gsub('_pool', '', claudiaNGS$ID)
+claudiaNGS$ID <- gsub('SIV_1_SIV22', 'SIV_1_22', claudiaNGS$ID)
+claudiaNGS$ID <- gsub('SIV_1_16-SIV_22', 'SIV_1_16', claudiaNGS$ID)
+
+# collapse rows
+claudiaNGS <- claudiaNGS %>% 
+  gather(key = 'cosa', value = 'si', -ID) %>% 
+  na.omit() %>% distinct() %>% 
+  spread(key = cosa, value = si)
+
+
+# trimmed HA ---------------------------------
+trimmed_HA <- fread('//wsl.localhost/Ubuntu-22.04/home/mwyler/tempSIV/Overview_HA_Seq.txt',
+                    data.table = F, header = F)
+colnames(trimmed_HA) <- 'ID'
+trimmed_HA$trimmed_HA <- 'yes'
+trimmed_HA$ID <- gsub('_H1', '', trimmed_HA$ID)
+
+# trimmed NA ---------------------------------
+trimmed_NA <- fread('//wsl.localhost/Ubuntu-22.04/home/mwyler/tempSIV/Overview_NA_Seq.txt',
+                    data.table = F, header = F)
+colnames(trimmed_NA) <- 'ID'
+trimmed_NA$trimmed_NA <- 'yes'
+trimmed_NA$ID <- gsub('_N1', '', trimmed_NA$ID)
+
+# make table ---------------------------------------------
+
+# get all possible IDs
+IDs <- c(ab1$ID, claudiaClean$ID, claudiaNGS$ID, trimmed_HA$ID, trimmed_NA$ID)
+IDs <- unique(IDs)
+tabella <- as.data.frame(matrix(ncol = 1, nrow = length(IDs)))
+tabella$ID <- IDs
+tabella$V1 <- NULL
+
+# extract year
+
+# add each set
+tabella <- left_join(tabella, ab1)
+tabella <- left_join(tabella, claudiaClean)
+tabella <- left_join(tabella, claudiaNGS)
+tabella <- left_join(tabella, trimmed_HA)
+tabella <- left_join(tabella, trimmed_NA)
+fwrite(tabella, file = '//wsl.localhost/Ubuntu-22.04/home/mwyler/tempSIV/MASTERtable.txt',
+       col.names = T, sep = '\t')
+```
+
+# meta data file
+
+```{sh}
+# define clades using trimmed_HA.tree with H1N2 as root (splits up well)
+echo
+SIV_11_10_H1,Clade_C.2.2
+SIV_05_10_H1,Clade_C.2.2
+SIV_65_15_H1,Clade_C.2.2
+SIV_64_15_H1,Clade_C.2.2
+SIV_90_17_H1,Clade_C.2.2
+SIV_91_17_H1,Clade_C.2.2
+SIV_139_14_H1,Clade_C.2.2
+SIV_151_17_H1,Clade_C.2.2
+SIV_3_15_H1,Clade_C.2.2
+SIV_32_17_H1,Clade_C.2.2
+SIV_31_17_H1,Clade_C.2.2
+SIV_85_16_H1,Clade_C.2.2
+SIV_52_17_H1,Clade_C.2.2
+SIV_53_17_H1,Clade_C.2.2
+SIV_14_15_H1,Clade_C.2.2
+SIV_100_14_H1,Clade_C.2.2
+SIV_6_15_H1,Clade_C.2.2
+SIV_5_15_H1,Clade_C.2.2
+SIV_57_15_H1,Clade_C.2.2
+SIV_79_15_H1,Clade_C.2.2
+SIV_91_15_H1,Clade_C.2.2
+SIV_24_14_H1,Clade_C.2.2
+SIV_05_14_H1,Clade_C.2.2
+SIV_63_14_H1,Clade_C.2.2
+SIV_07_14_H1,Clade_C.2.2
+SIV_39_15_H1,Clade_C.2.2
+SIV_60_15_H1,Clade_C.2.2
+SIV_66_14_H1,Clade_C.2.2
+SIV_144_14_H1,Clade_C.2.2
+SIV_04_21_H1,Clade_C.2.2
+SIV_45_10_H1,Clade_C.2.2
+SIV_125_11_H1,Clade_C.2.2
+SIV_127_14_H1,Clade_C.2.2
+SIV_96_12_H1,Clade_C.2.2
+SIV_202_11_H1,Clade_C.2.2
+SIV_38_10_H1,Clade_C.2.2
+SIV_181_11_H1,Clade_C.2.2
+SIV_48_10_H1,Clade_C.2.2
+SIV_74_10_H1,Clade_C.2.2
+SIV_178_11_H1,Clade_C.2.2
+SIV_192_11_H1,Clade_C.2.2
+SIV_74_12_H1,Clade_C.2.2
+SIV_31_12_H1,Clade_C.2.2
+SIV_89_15_H1,Clade_C.2.2
+SIV_120_14_H1,Clade_C.2.2
+SIV_130_14_H1,Clade_C.2.2
+SIV_148_14_H1,Clade_C.2.2
+SIV_123_10_H1,Clade_C.2.2
+SIV_41_10_H1,Clade_C.2.2
+SIV_01_19_H1,Clade_C.2.2
+SIV_18_10_H1,Clade_C.2.2
+
+
+SIV_02_20_H1,Clade_C.2.1
+SIV_11_15_H1,Clade_C.2.1
+SIV_52_16_H1,Clade_C.2.1
+SIV_28_17_H1,Clade_C.2.1
+SIV_29_17_H1,Clade_C.2.1
+SIV_55_19_H1,Clade_C.2.1
+SIV_72_17_H1,Clade_C.2.1
+SIV_50_16_H1,Clade_C.2.1
+SIV_118_16_H1,Clade_C.2.1
+SIV_119_16_H1,Clade_C.2.1
+SIV_63_19_H1,Clade_C.2.1
+SIV_100_19_H1,Clade_C.2.1
+SIV_97_19_H1,Clade_C.2.1
+SIV_4_17_H1,Clade_C.2.1
+SIV_26_20_H1,Clade_C.2.1
+SIV_15_21_H1,Clade_C.2.1
+SIV_27_20_H1,Clade_C.2.1
+SIV_40_21_H1,Clade_C.2.1
+SIV_71_18_H1,Clade_C.2.1
+SIV_72_18_H1,Clade_C.2.1
+SIV_03_19_H1,Clade_C.2.1
+SIV_17_22_H1,Clade_C.2.1
+SIV_106_17_H1,Clade_C.2.1
+SIV_09_18_H1,Clade_C.2.1
+SIV_105_17_H1,Clade_C.2.1
+SIV_157_17_H1,Clade_C.2.1
+SIV_99_19_H1,Clade_C.2.1
+SIV_35_20_H1,Clade_C.2.1
+SIV_53_19_H1,Clade_C.2.1
+SIV_16_21_H1,Clade_C.2.1
+SIV_23_19_H1,Clade_C.2.1
+SIV_36_21_H1,Clade_C.2.1
+SIV_156_17_H1,Clade_C.2.1
+SIV_164_17_H1,Clade_C.2.1
+SIV_7_17_H1,Clade_C.2.1
+SIV_8_17_H1,Clade_C.2.1
+SIV_2_17_H1,Clade_C.2.1
+SIV_11_17_H1,Clade_C.2.1
+SIV_67_17_H1,Clade_C.2.1
+SIV_69_17_H1,Clade_C.2.1
+SIV_68_17_H1,Clade_C.2.1
+SIV_162_17_H1,Clade_C.2.1
+
+
+```
+
+# Human Samples
+
+From Julia (mail 09.09.2024):
+- EPI_ISL_85201: SIV 156.10, SIV 157.10, SIV 158.10
+- EPI_ISL_98715: SIV 59.11, SIV 60.11, SIV 61.11
+- EPI_ISL_1903157: SIV 179.11, SIV 180.11, SIV 181.11
+
+other two human are useless.
+
+!! only 181.11 has sanger sequences
+
+```{sh}
+# list samples of interest
+echo "EPI_ISL_85201
+156_10
+157_10
+158_10
+EPI_ISL_98715
+59_11
+60_11
+61_11
+EPI_ISL_1903157
+179_11
+180_11
+181_11" > $TEMPDIR/humanSamples.txt
+
+# subset HA
+fgrep -f $TEMPDIR/humanSamples.txt ~/Downloads/SIV_CH/trimmed_HA.aln  | while read line; do
+  samtools faidx ~/Downloads/SIV_CH/trimmed_HA.aln $line
+done > $TEMPDIR/humanCases_HA.fa
+
+# subset HA
+cat $TEMPDIR/humanSamples.txt | while read line; do
+  samtools faidx ~/Downloads/SIV_CH/trimmed_NA.aln $line
+done > $TEMPDIR/humanCases_NA.fa
+
+muscle -in $TEMPDIR/humanCases_NA.fa -out $TEMPDIR/humanCases_NA.aln
+muscle -in $TEMPDIR/humanCases_HA.fa -out $TEMPDIR/humanCases_HA.aln
+```
